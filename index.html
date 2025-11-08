@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>SmartFarm Yield Predictor</title>
+  <style>
+    body { font-family: Arial; max-width: 600px; margin: 40px auto; }
+    input, button { margin: 5px; padding: 8px; width: 100%; }
+    button { background: #28a745; color: white; border: none; cursor: pointer; }
+    .result { margin-top: 20px; font-size: 18px; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h2>🌾 SmartFarm Crop Yield Predictor</h2>
+
+  <label>Temperature (°C)</label>
+  <input type="number" id="temp" step="any">
+
+  <label>Humidity (%)</label>
+  <input type="number" id="humidity" step="any">
+
+  <label>Soil Moisture (%)</label>
+  <input type="number" id="soil" step="any">
+
+  <button onclick="predict()">Predict Yield</button>
+
+  <div class="result" id="output"></div>
+
+  <script>
+    function predict() {
+      const temp = parseFloat(document.getElementById('temp').value);
+      const humidity = parseFloat(document.getElementById('humidity').value);
+      const soil = parseFloat(document.getElementById('soil').value);
+
+      // --- Algorithm 1: Linear Regression ---
+      // Example coefficients (replace with yours)
+      const lin_yield = 1.5 + 0.4*temp + 0.3*humidity + 0.2*soil;
+
+      // --- Algorithm 2: KNN (very simplified demo with fake dataset) ---
+      const dataset = [
+        {temp: 20, humidity: 60, soil: 40, yield: 50},
+        {temp: 25, humidity: 55, soil: 60, yield: 65},
+        {temp: 30, humidity: 70, soil: 55, yield: 80}
+      ];
+      const distances = dataset.map(d =>
+        Math.sqrt((d.temp-temp)**2 + (d.humidity-humidity)**2 + (d.soil-soil)**2)
+      );
+      const knn_yield = dataset
+        .map((d,i) => ({dist: distances[i], yield: d.yield}))
+        .sort((a,b) => a.dist - b.dist)
+        .slice(0,2)
+        .reduce((sum, d) => sum + d.yield, 0) / 2;
+
+      // --- Algorithm 3: Simple Decision Rule (Decision Tree) ---
+      let tree_yield;
+      if (temp > 28 && soil > 50) tree_yield = 80;
+      else if (humidity > 60) tree_yield = 65;
+      else tree_yield = 45;
+
+      // Average result
+      const final_pred = ((lin_yield + knn_yield + tree_yield) / 3).toFixed(2);
+
+      document.getElementById('output').innerText =
+        `Predicted Crop Yield: ${final_pred} units`;
+    }
+  </script>
+</body>
+</html>
