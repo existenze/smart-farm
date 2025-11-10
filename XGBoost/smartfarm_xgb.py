@@ -34,12 +34,12 @@ warnings.filterwarnings("ignore")
 pd.set_option("display.max_columns", 200)
 
 # ---------- CONFIG ----------
-DATA_PATH = r"C:\Users\brand\OneDrive\Desktop\COMPE510\Smart_Farming_Crop_Yield_2024.csv"
+DATA_PATH = "Smart_Farming_Crop_Yield_2024.csv"
 MODEL_OUT = "xgb_smartfarm_model.joblib"
 RANDOM_STATE = 42
 TEST_SIZE = 0.2   # used for random split (not time-split)
 TIME_SPLIT = True  # if True, do a time-based split (recommended for time-series)
-TARGET_COL = "yield"  # change to the actual target column name in your CSV
+TARGET_COL = "yield_kg_per_hectare"
 DATE_COL = "date"     # change if your dataset has a different datetime column
 FARM_ID_COL = "farm_id"  # optional: unique farm identifier if present
 
@@ -94,7 +94,7 @@ def basic_preprocess(df: pd.DataFrame) -> pd.DataFrame:
     categorical_cols = [c for c in df.columns if df[c].dtype == "object" and c not in [FARM_ID_COL, DATE_COL]]
     if len(categorical_cols) > 0:
         print("One-hot encoding:", categorical_cols)
-        encoder = OneHotEncoder(sparse=False, handle_unknown="ignore")
+        encoder = OneHotEncoder(sparse_output=False, handle_unknown="ignore")
         encoded = encoder.fit_transform(df[categorical_cols].fillna("NA"))
         encoded_df = pd.DataFrame(encoded, columns=encoder.get_feature_names_out(categorical_cols), index=df.index)
         df = pd.concat([df.drop(columns=categorical_cols), encoded_df], axis=1)
@@ -305,3 +305,4 @@ if __name__ == "__main__":
     parser.add_argument("--shap", action="store_true", help="Run SHAP explainability after training (can be slow).")
     args = parser.parse_args()
     main(args)
+
