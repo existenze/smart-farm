@@ -123,9 +123,9 @@ def split_data(df: pd.DataFrame, features):
 
 def train_xgboost(X_train, y_train, X_val, y_val):
     print("\nTraining XGBoost with early stopping (3.x compatible)...")
-    
-    dtrain = xgb.DMatrix(X_train, label=y_train)
-    dval = xgb.DMatrix(X_val, label=y_val)
+    # Make sure feature names are carried through
+    dtrain = xgb.DMatrix(X_train, label=y_train, feature_names=list(X_train.columns))
+    dval   = xgb.DMatrix(X_val,   label=y_val,   feature_names=list(X_val.columns))
 
     params = {
         "objective": "reg:squarederror",
@@ -176,18 +176,38 @@ def evaluate_model(model, X_test, y_test, show_plots=True):
     return {"mae": mae, "rmse": rmse, "r2": r2, "preds": preds}
 
 def plot_feature_importances(model, feature_names, top_n=20):
-    importances = model.get_score(importance_type="weight")
-    # Map feature names to importance scores
-    imp_dict = {feature_names[int(k[1:])]: v for k, v in importances.items()} if len(importances) > 0 else {}
-    top_features = sorted(imp_dict.items(), key=lambda x: x[1], reverse=True)[:top_n]
-    names, scores = zip(*top_features) if top_features else ([], [])
-    plt.figure(figsize=(8,6))
+    """
+    Works whether get_score() returns 'f0','f1',... or real feature names.
+    """
+    raw = model.get_score(importance_type="weight")
+    if not raw:
+        print("No feature importances available from model.")
+        return
+
+    def _is_index_key(k: str) -> bool:
+        return k.startswith("f") and k[1:].isdigit()
+
+    if all(_is_index_key(k) for k in raw.keys()):
+        # Map f{idx} -> feature_names[idx]
+        imp_items = [(feature_names[int(k[1:])], v) for k, v in raw.items()]
+    else:
+        # Keys are already names
+        imp_items = list(raw.items())
+
+    top_features = sorted(imp_items, key=lambda x: x[1], reverse=True)[:top_n]
+    if not top_features:
+        print("No top features to plot.")
+        return
+
+    names, scores = zip(*top_features)
+    plt.figure(figsize=(8, 6))
     plt.barh(range(len(scores))[::-1], scores)
     plt.yticks(range(len(scores))[::-1], names)
     plt.xlabel("Feature importance (weight)")
     plt.title("Top feature importances (XGBoost)")
     plt.tight_layout()
     plt.show()
+
 
 def shap_explain(model, X_sample, feature_names):
     print("\nComputing SHAP values for model interpretability (may take time)...")
@@ -252,6 +272,7 @@ if __name__ == "__main__":
     parser.add_argument("--shap", action="store_true", help="Run SHAP explainability after training (can be slow).")
     args = parser.parse_args()
     main(args)
+
 
 
 
