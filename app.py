@@ -136,14 +136,102 @@ with st.expander("About the dataset & project", expanded=False):
 
 # Sidebar — data
 st.sidebar.header("1) Upload / Load Data")
-uploaded = st.sidebar.file_uploader("Upload CSV (e.g., Smart_Farming_Crop_Yield_2024.csv)", type=["csv"])
+uploaded = st.sidebar.file_uploader("Upload CSV (optional) — otherwise the app will load a default dataset", type=["csv"])
 
-if uploaded is None:
-    st.info("Upload a CSV to begin. (Tip: the Kaggle file is typically named **Smart_Farming_Crop_Yield_2024.csv**)")
-    st.stop()
 
-df = load_csv(uploaded)
-st.success(f"Loaded dataset with shape {df.shape}.")
+@st.cache_data
+def find_local_csv(root_path: str = ".") -> str | None:
+    # search for a csv in the repo (data/ or top-level)
+    for dirpath, dirnames, filenames in os.walk(root_path):
+        for fn in filenames:
+            if fn.lower().endswith(".csv"):
+                # ignore obvious output files
+                if fn.lower().startswith("pred") or fn.lower().startswith("out"):
+                    continue
+                return os.path.join(dirpath, fn)
+    return None
+
+
+def try_load_from_github_raw() -> pd.DataFrame | None:
+    # Attempt to construct a raw GitHub URL to a likely dataset file using the origin remote.
+    # This is best-effort and will fail silently if not available.
+    try:
+        import subprocess
+        remote = subprocess.check_output(["git", "config", "--get", "remote.origin.url"]).decode().strip()
+        if remote.endswith('.git'):
+            remote = remote[:-4]
+        # common candidate paths
+        candidates = [
+            "data/Smart_Farming_Crop_Yield_2024.csv",
+            "data/smartfarm.csv",
+            "Smart_Farming_Crop_Yield_2024.csv",
+            "smartfarm.csv",
+        ]
+        for c in candidates:
+            # construct raw url for GitHub
+            if remote.startswith("https://github.com/"):
+                raw = remote.replace("https://github.com/", "https://raw.githubusercontent.com/") + "/main/" + c
+                try:
+                    df = pd.read_csv(raw)
+                    return df
+                except Exception:
+                    continue
+    except Exception:
+        return None
+    return None
+
+
+def generate_synthetic_dataset(n_samples: int = 500) -> pd.DataFrame:
+    # Create a small synthetic dataset resembling sensor readings and a yield target.
+    rng = np.random.default_rng(42)
+    soil_moisture = rng.normal(loc=30, scale=8, size=n_samples)
+    temp = rng.normal(loc=22, scale=5, size=n_samples)
+    humidity = rng.normal(loc=55, scale=10, size=n_samples)
+    ph = rng.normal(loc=6.5, scale=0.5, size=n_samples)
+    fertilizer = rng.integers(0, 3, size=n_samples)  # 0,1,2 types
+    # create a target with some noise
+    yield_kg = (0.5 * soil_moisture) + (1.2 * temp) + (-0.3 * ph) + (2.5 * fertilizer) + rng.normal(0, 5, size=n_samples)
+    df = pd.DataFrame({
+        "soil_moisture": soil_moisture,
+        "temperature": temp,
+        "humidity": humidity,
+        "ph": ph,
+        "fertilizer_type": fertilizer,
+        "yield": yield_kg,
+    })
+    return df
+
+
+def load_default_dataset():
+    # 1) check for local CSVs
+    local = find_local_csv()
+    if local:
+        try:
+            df = pd.read_csv(local)
+            st.sidebar.success(f"Loaded local dataset: {os.path.relpath(local)}")
+            return df
+        except Exception:
+            pass
+    # 2) try GitHub raw
+    df = try_load_from_github_raw()
+    if df is not None:
+        st.sidebar.success("Loaded dataset from GitHub (raw)")
+        return df
+    # 3) fallback: synthetic dataset
+    st.sidebar.warning("No dataset found locally or on GitHub — using a synthetic demo dataset. Upload a CSV to override.")
+    return generate_synthetic_dataset()
+
+
+if uploaded is not None:
+    try:
+        df = load_csv(uploaded)
+        st.sidebar.success(f"Loaded uploaded CSV ({uploaded.name}) — shape {df.shape}.")
+    except Exception as e:
+        st.sidebar.error(f"Failed to read uploaded CSV: {e}")
+        df = load_default_dataset()
+else:
+    df = load_default_dataset()
+    st.success(f"Dataset ready — shape {df.shape}.")
 
 # Target selection
 st.sidebar.header("2) Choose Target")
