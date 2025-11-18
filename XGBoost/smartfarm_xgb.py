@@ -36,7 +36,7 @@ warnings.filterwarnings("ignore")
 pd.set_option("display.max_columns", 200)
 
 # ---------- CONFIG ----------
-DATA_PATH = "Smart_Farming_Crop_Yield_2024.csv"
+DATA_PATH = Path(__file__).parent / "Smart_Farming_Crop_Yield_2024.csv"
 MODEL_OUT = "xgb_smartfarm_model.joblib"
 RANDOM_STATE = 42
 TEST_SIZE = 0.2
@@ -252,6 +252,7 @@ if __name__ == "__main__":
     parser.add_argument("--shap", action="store_true", help="Run SHAP explainability after training (can be slow).")
     args = parser.parse_args()
     main(args)
+
 
 
 
